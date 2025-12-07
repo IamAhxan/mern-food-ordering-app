@@ -1,7 +1,42 @@
+import type { User } from "@/types";
 import { useAuth0 } from "@auth0/auth0-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+export const useGetMyUser = () => {
+  const { getAccessTokenSilently } = useAuth0();
+
+  const getMyUserRequest = async (): Promise<User> => {
+    const accessToken = await getAccessTokenSilently();
+
+    const response = await fetch(`${API_BASE_URL}/api/my/user`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "content-Type": "application/json",
+      },
+    });
+    if (!response.ok) {
+      throw new Error("Failed to fetch User");
+    }
+    return response.json();
+  };
+
+  const {
+    data: currentUser,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["fetchCurrentUser"], // Key must be an array
+    queryFn: getMyUserRequest,
+  });
+  if (error) {
+    toast.error(error.toString());
+  }
+  return { currentUser, isLoading };
+};
 
 type CreateUserRequest = {
   auth0Id: string;
@@ -58,7 +93,7 @@ export const useUpdateMyUser = () => {
     const response = await fetch(`${API_BASE_URL}/api/my/user`, {
       method: "PUT",
       headers: {
-        Authorization: `Beared ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         "content-Type": "application/json",
       },
       body: JSON.stringify(formData),
@@ -73,15 +108,20 @@ export const useUpdateMyUser = () => {
     mutateAsync: updateUser,
     isPending,
     isSuccess,
-    isError,
     error,
     reset,
   } = useMutation({ mutationFn: updateMyUserRequest });
+  if (isSuccess) {
+    toast.success("User Profile Updated");
+  }
+  if (error) {
+    toast.error(error.toString());
+    reset();
+  }
 
   return {
     updateUser,
     isPending,
-    isError,
     isSuccess,
     error,
     reset,
