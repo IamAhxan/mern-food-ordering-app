@@ -9,48 +9,56 @@ import CuisinesSection from "./CuisinesSection";
 import MenuSection from "./MenuSection";
 import ImageSection from "./ImageSection";
 import LoadingButtn from "@/components/LoadingButtn";
+import type { Restaurant } from "@/types";
+import { useEffect } from "react";
 
 // --- ZOD SCHEMA FIXES ---
-const formSchema = z.object({
-  // Removed config object from z.string, using .min(1) for required validation
-  restaurantName: z.string().min(1, "Restaurant Name is required"),
-  city: z.string().min(1, "City Name is required"),
-  country: z.string().min(1, "Country Name is required"),
+const formSchema = z
+  .object({
+    // Removed config object from z.string, using .min(1) for required validation
+    restaurantName: z.string().min(1, "Restaurant Name is required"),
+    city: z.string().min(1, "City Name is required"),
+    country: z.string().min(1, "Country Name is required"),
 
-  // FIX: Simplified z.coerce.number. The .min(1, ...) handles the required logic.
-  // The 'invalid_type_error' is generally handled by the resolver or the .min()
-  // if the input is non-numeric garbage.
-  deliveryPrice: z.coerce
-    .number()
-    .min(1, "Delivery price must be greater than 0"),
+    // FIX: Simplified z.coerce.number. The .min(1, ...) handles the required logic.
+    // The 'invalid_type_error' is generally handled by the resolver or the .min()
+    // if the input is non-numeric garbage.
+    deliveryPrice: z.coerce
+      .number()
+      .min(1, "Delivery price must be greater than 0"),
 
-  estimatedDeliveryTime: z.coerce
-    .number()
-    .min(1, "Estimated delivery time must be greater than 0")
-    .int("Estimated delivery time must be a whole number"),
-  cuisines: z.array(z.string()).nonempty({
-    message: "Please select at least one item",
-  }),
+    estimatedDeliveryTime: z.coerce
+      .number()
+      .min(1, "Estimated delivery time must be greater than 0")
+      .int("Estimated delivery time must be a whole number"),
+    cuisines: z.array(z.string()).nonempty({
+      message: "Please select at least one item",
+    }),
 
-  menuItems: z.array(
-    z.object({
-      name: z.string().min(1, "Name is required"),
-      price: z.coerce.number().min(1, "Price is required"),
-    })
-  ),
-
-  imageFile: z.instanceof(File, { message: "Image is required" }).optional(),
-});
+    menuItems: z.array(
+      z.object({
+        name: z.string().min(1, "Name is required"),
+        price: z.coerce.number().min(1, "Price is required"),
+      })
+    ),
+    imageUrl: z.string().optional(),
+    imageFile: z.instanceof(File, { message: "Image is required" }).optional(),
+  })
+  .refine((data) => data.imageUrl || data.imageFile, {
+    message: "Image must be provided",
+    path: ["imageFile"],
+  });
 
 type restaurantFormData = z.infer<typeof formSchema>;
 
 type Props = {
+  restaurant?: Restaurant;
   onSave: (restaurantFormData: FormData) => void;
   isPending: boolean;
 };
 
 // --- COMPONENT FIXES ---
-const ManageRestaurantForm = ({ onSave, isPending }: Props) => {
+const ManageRestaurantForm = ({ onSave, isPending, restaurant }: Props) => {
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -64,6 +72,26 @@ const ManageRestaurantForm = ({ onSave, isPending }: Props) => {
       imageFile: undefined,
     },
   });
+
+  useEffect(() => {
+    if (!restaurant) {
+      return;
+    }
+    const deliveryPriceFormatted = parseInt(
+      (restaurant.deliveryPrice / 100).toFixed(2)
+    );
+    const menuItemsFormatted = restaurant.menuItems.map((item) => ({
+      ...item,
+      price: item.price / 100, // Converts cents back to standard number format
+    }));
+
+    const updatedRestaurant = {
+      ...restaurant,
+      deliveryPrice: deliveryPriceFormatted,
+      menuItems: menuItemsFormatted,
+    };
+    form.reset(updatedRestaurant);
+  }, [form, restaurant]);
 
   // --- ONSUBMIT IMPLEMENTATION FIX ---
   const onSubmit = (formDataJson: restaurantFormData) => {
