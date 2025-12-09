@@ -29,7 +29,7 @@ const SORT_OPTIONS = [
 const SortOptionsDropdown = ({ onChange, sortOption }: Props) => {
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === sortOption)?.label ||
-    SORT_OPTIONS[0];
+    SORT_OPTIONS[0].label;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="cursor-pointer">

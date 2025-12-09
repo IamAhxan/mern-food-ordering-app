@@ -12,6 +12,7 @@ export type SearchState = {
   searchQuery: string;
   page: number;
   selectedCuisines: string[];
+  sortOption: string;
 };
 
 const SearchPage = () => {
@@ -21,6 +22,7 @@ const SearchPage = () => {
     searchQuery: "",
     page: 1,
     selectedCuisines: [],
+    sortOption: "bestMatch",
   });
   const { results, isPending, isError } = useSearchRestaurants(
     searchState,
