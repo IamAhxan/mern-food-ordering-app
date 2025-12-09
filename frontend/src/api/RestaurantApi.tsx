@@ -6,8 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export const useSearchRestaurants = (city?: string) => {
   const createSearchRequest = async (): Promise<RestaurantSearchResponse> => {
     const response = await fetch(
-      `${API_BASE_URL}/api/restaurants/search/${city}`,
-      { cache: "no-cache" }
+      `${API_BASE_URL}/api/restaurants/search/${city}`
     );
 
     if (!response.ok) {
