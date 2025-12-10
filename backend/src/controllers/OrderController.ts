@@ -7,6 +7,10 @@ import Order from "../models/Order.js";
 
 const STRIPE = new Stripe(process.env.STRIPE_API_KEY as string);
 const FRONTEND_URL = process.env.FRONTEND_URL as string;
+const STRIPE_ENDPOINT_SECRET = process.env.STRIPE_WEBHOOK_SECRET as string;
+
+// Helper to convert dollars (as stored in Mongoose) to cents (as required by Stripe)
+const toCents = (amount: number): number => Math.round(amount * 100);
 
 type CheckoutSessionRequest = {
     cartItems: {
@@ -34,13 +38,15 @@ const createLineItems = (
             );
 
             if (!menuItem) {
+                // Throwing an error will be caught by the outer try/catch
                 throw new Error(`Menu item not found: ${cartItem.menuItemId}`);
             }
 
             const line_item: Stripe.Checkout.SessionCreateParams.LineItem = {
                 price_data: {
                     currency: "usd",
-                    unit_amount: menuItem.price,
+                    // FIX: Convert price from dollars (Mongoose) to cents (Stripe)
+                    unit_amount: toCents(menuItem.price),
                     product_data: {
                         name: menuItem.name,
                     },
@@ -53,9 +59,58 @@ const createLineItems = (
     return lineItems;
 };
 
+
+const stripeWebhookHandler = async (req: Request, res: Response) => {
+    // FIX: Explicitly type event and rely on return in catch for safety
+    let event: Stripe.Event;
+
+    try {
+        const sig = req.headers["stripe-signature"];
+        // NOTE: This assumes express.raw() middleware is used for this route in index.ts
+        event = STRIPE.webhooks.constructEvent(req.body, sig as string, STRIPE_ENDPOINT_SECRET);
+    } catch (error: any) {
+        console.error("Stripe Webhook Signature Error:", error);
+        // FIX: Must return here to prevent proceeding with potentially undefined 'event'
+        return res.status(400).send(`Webhook signature error: ${error.message}`);
+    }
+
+    if (event.type === "checkout.session.completed") {
+        // FIX: Type assertion (narrowing) to access specific Checkout Session properties
+        const session = event.data.object as Stripe.Checkout.Session;
+
+        const order = await Order.findById(session.metadata?.orderId);
+
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        // FIX: Convert amount_total (cents) back to dollars for the Mongoose model
+        if (session.amount_total) {
+            order.totalAmount = session.amount_total / 100;
+        } else {
+            console.error("Webhook session completed, but amount_total is missing.");
+        }
+
+        order.status = "paid";
+
+        await order.save();
+    }
+
+    // Always respond 200 OK to Stripe
+    res.status(200).send();
+};
+
+
 const createCheckoutSession = async (req: Request, res: Response) => {
     try {
         const checkoutSessionRequest: CheckoutSessionRequest = req.body;
+
+        // Ensure req.userId is available (from jwtParse middleware)
+        const userId = (req as any).userId;
+        if (!userId) {
+            return res.status(401).json({ message: "User not authenticated" });
+        }
+
         const restaurant = await Restaurant.findById(
             checkoutSessionRequest.restaurantId
         );
@@ -63,9 +118,11 @@ const createCheckoutSession = async (req: Request, res: Response) => {
         if (!restaurant) {
             return res.status(404).json({ message: "Restaurant not Found" });
         }
+
+        // Create the new order instance
         const newOrder = new Order({
             restaurant: restaurant,
-            user: req.userId,
+            user: userId, // Use the extracted userId
             status: "placed",
             deliveryDetails: checkoutSessionRequest.deliveryDetails,
             cartItems: checkoutSessionRequest.cartItems,
@@ -75,19 +132,25 @@ const createCheckoutSession = async (req: Request, res: Response) => {
         const menuItems = restaurant.menuItems as MenuItemType[];
         const lineItems = createLineItems(checkoutSessionRequest, menuItems);
 
+        // FIX: Convert deliveryPrice from dollars (Mongoose) to cents (Stripe)
+        const deliveryPriceCents = toCents(restaurant.deliveryPrice);
+
         const session = await createSession(
             lineItems,
             newOrder._id.toString(),
-            restaurant.deliveryPrice,
+            deliveryPriceCents, // Pass the value in cents
             restaurant._id.toString()
         );
+
         if (!session.url) {
             return res.status(500).json({ message: "Error creating Stripe session" })
         }
-        await newOrder.save()
-        res.json({ url: session.url })
 
+        await newOrder.save()
+
+        // FIX: Remove redundant return statement
         return res.json({ url: session.url });
+
     } catch (error: any) {
         console.error("Stripe Checkout Error:", error);
 
@@ -106,7 +169,7 @@ const createSession = async (lineItems: Stripe.Checkout.SessionCreateParams.Line
                     display_name: "Delivery",
                     type: "fixed_amount",
                     fixed_amount: {
-                        amount: deliveryPrice,
+                        amount: deliveryPrice, // This is now correctly in cents
                         currency: "usd",
                     }
                 }
@@ -124,4 +187,4 @@ const createSession = async (lineItems: Stripe.Checkout.SessionCreateParams.Line
 }
 
 
-export { createCheckoutSession };
+export { createCheckoutSession, stripeWebhookHandler };

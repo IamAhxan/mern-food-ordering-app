@@ -2,7 +2,7 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import "dotenv/config";
 import mongoose from 'mongoose';
-import myUserRoute from "./routes/MyUserRoutes.js"
+import MyUserRoute from "./routes/MyUserRoutes.js"
 import myRestaurantRoute from "./routes/MyRestaurantRoute.js"
 import RestaurantRoute from "./routes/RestaurantRoute.js"
 import OrderRoute from "./routes/OrderRoute.js"
@@ -17,15 +17,18 @@ cloudinary.config({
 })
 
 const app = express();
-app.use(express.json());
 app.use(cors());
+app.use("/api/order/checkout/webhook", express.raw({ type: "*/" }))
+
+app.use(express.json());
+
 
 
 app.get("/health", async (req: Request, res: Response) => {
     res.send({ message: "Health OK!" })
 })
 
-app.use("/api/my/user", myUserRoute)
+app.use("/api/my/user", MyUserRoute)
 app.use("/api/my/restaurant", myRestaurantRoute)
 app.use("/api/restaurants", RestaurantRoute)
 app.use("/api/order", OrderRoute)

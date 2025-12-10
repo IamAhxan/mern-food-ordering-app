@@ -4,10 +4,13 @@
   "description": "",
   "main": "./src/index.ts",
   "scripts": {
+    "dev:all": "concurrently \"npm run dev\" \"npm run stripe\"",
     "dev": "nodemon --exec node --loader ts-node/esm ./src/index.ts",
+    "stripe": "stripe listen --forward-to localhost:7000/api/order/checkout/webhook",
     "build": "npx tsc",
     "start": "node dist/index.js"
   },
+  
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -15,6 +18,7 @@
   "dependencies": {
     "@types/multer": "^2.0.0",
     "cloudinary": "^2.8.0",
+    "concurrently": "^9.2.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.0",
