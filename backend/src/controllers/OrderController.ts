@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import { type Request, type Response } from "express";
 import Stripe from "stripe";
 import Restaurant from "../models/Restaurant.js";
 // FIX: Correctly import MenuItemType. Assuming it's the type for items in restaurant.menuItems.
@@ -11,6 +11,19 @@ const STRIPE_ENDPOINT_SECRET = process.env.STRIPE_WEBHOOK_SECRET as string;
 
 // Helper to convert dollars (as stored in Mongoose) to cents (as required by Stripe)
 const toCents = (amount: number): number => Math.round(amount * 100);
+
+
+const getMyOrders = async (req: Request, res: Response) => {
+    try {
+        const orders = await Order.find({ user: req.userId }).populate("restaurant").populate("user")
+
+        res.json(orders)
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ message: "Something went wrong" })
+    }
+}
+
 
 type CheckoutSessionRequest = {
     cartItems: {
@@ -187,4 +200,4 @@ const createSession = async (lineItems: Stripe.Checkout.SessionCreateParams.Line
 }
 
 
-export { createCheckoutSession, stripeWebhookHandler };
+export { createCheckoutSession, stripeWebhookHandler, getMyOrders };
