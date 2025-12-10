@@ -23,6 +23,7 @@ export const useGetMyOrders = () => {
   const { data: orders, isPending } = useQuery({
     queryKey: ["fetchMyOrders"], // Key must be an array
     queryFn: getMyOrdersRequest,
+    refetchInterval: 5000,
   });
   return { orders, isPending };
 };
