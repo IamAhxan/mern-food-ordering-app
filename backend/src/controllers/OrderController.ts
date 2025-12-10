@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import Restaurant from "../models/Restaurant.js";
 // FIX: Correctly import MenuItemType. Assuming it's the type for items in restaurant.menuItems.
 import type { MenuItemType } from "../models/Restaurant.js";
+import Order from "../models/Order.js";
 
 const STRIPE = new Stripe(process.env.STRIPE_API_KEY as string);
 const FRONTEND_URL = process.env.FRONTEND_URL as string;
@@ -62,19 +63,28 @@ const createCheckoutSession = async (req: Request, res: Response) => {
         if (!restaurant) {
             return res.status(404).json({ message: "Restaurant not Found" });
         }
+        const newOrder = new Order({
+            restaurant: restaurant,
+            user: req.userId,
+            status: "placed",
+            deliveryDetails: checkoutSessionRequest.deliveryDetails,
+            cartItems: checkoutSessionRequest.cartItems,
+            createdAt: new Date(),
+        })
 
         const menuItems = restaurant.menuItems as MenuItemType[];
         const lineItems = createLineItems(checkoutSessionRequest, menuItems);
 
         const session = await createSession(
             lineItems,
-            "TEST_ORDER_ID",
+            newOrder._id.toString(),
             restaurant.deliveryPrice,
             restaurant._id.toString()
         );
         if (!session.url) {
             return res.status(500).json({ message: "Error creating Stripe session" })
         }
+        await newOrder.save()
         res.json({ url: session.url })
 
         return res.json({ url: session.url });
