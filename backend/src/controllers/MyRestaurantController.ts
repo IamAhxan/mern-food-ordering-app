@@ -80,36 +80,22 @@ const updateMyRestaurant = async (req: Request, res: Response) => {
 
 
 
-// const getMyRestaurantOrders = async (req: Request, res: Response) => {
-//     try {
-//         const userId = req.userId
-//         const restaurant = await Restaurant.findOne({ userId })
-//         if(!restaurant) { 
-
-//         }
-
-//     } catch (error) {
-//         console.log(error)
-//         res.status(500).json({ message: "Something went Wrong" })
-//     }
-// }
-
-
 const getMyRestaurantOrders = async (req: Request, res: Response) => {
     try {
-        const userId = req.userId;
+        const userId = req.userId
         const restaurant = await Restaurant.findOne({ userId })
         if (!restaurant) {
-            res.status(500).json({ messasge: "Restaurant Not Found" })
-        }
 
-        return res.status(200).json(restaurant)
+        }
 
     } catch (error) {
         console.log(error)
-        res.status(50).json({ message: "Something went wrong" })
+        res.status(500).json({ message: "Something went Wrong" })
     }
 }
+
+
+
 
 const updateOrderStatus = async (req: Request, res: Response) => {
     try {
