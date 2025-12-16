@@ -79,21 +79,37 @@ const updateMyRestaurant = async (req: Request, res: Response) => {
 
 
 
+
+// const getMyRestaurantOrders = async (req: Request, res: Response) => {
+//     try {
+//         const userId = req.userId
+//         const restaurant = await Restaurant.findOne({ userId })
+//         if(!restaurant) { 
+
+//         }
+
+//     } catch (error) {
+//         console.log(error)
+//         res.status(500).json({ message: "Something went Wrong" })
+//     }
+// }
+
+
 const getMyRestaurantOrders = async (req: Request, res: Response) => {
     try {
-        const restaurant = await Restaurant.findOne({ user: req.userId });
+        const userId = req.userId;
+        const restaurant = await Restaurant.findOne({ userId })
         if (!restaurant) {
-            return res.status(404).json({ message: "Restaurant not found" })
+            res.status(500).json({ messasge: "Restaurant Not Found" })
         }
 
-        const orders = await Order.find({ restaurant: restaurant._id }).populate("restaurant").populate("user")
-        res.json(orders)
+        return res.status(200).json(restaurant)
+
     } catch (error) {
         console.log(error)
-        res.status(500).json({ mesasge: "Something went wrong" })
+        res.status(50).json({ message: "Something went wrong" })
     }
 }
-
 
 const updateOrderStatus = async (req: Request, res: Response) => {
     try {
